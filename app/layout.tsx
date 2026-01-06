@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
@@ -34,20 +33,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
         {children}
         <Analytics />
-        <Script
-          id="buymeacoffee"
-          src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
-          data-name="bmc-button"
-          data-slug="rokontech"
-          data-color="#FFDD00"
-          data-emoji=""
-          data-font="Cookie"
-          data-text="Buy me a coffee"
-          data-outline-color="#000000"
-          data-font-color="#000000"
-          data-coffee-color="#ffffff"
-          strategy="lazyOnload"
-        />
       </body>
     </html>
   )

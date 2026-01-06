@@ -423,7 +423,9 @@ export default function Home() {
 
         {/* Buy Me a Coffee Section */}
         <div className="support-section">
-          <div id="bmc-wbtn"></div>
+          <a href="https://www.buymeacoffee.com/rokontech" target="_blank" rel="noopener noreferrer">
+            <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style={{ height: '60px', width: '217px' }} />
+          </a>
         </div>
 
         {/* Privacy Disclaimer */}
