@@ -111,6 +111,26 @@ body {
   line-height: 1.7;
 }
 
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease, transform 0.2s ease;
+  text-decoration: none;
+}
+
+.github-link:hover {
+  color: var(--text);
+  transform: translateY(-2px);
+}
+
+.github-link svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Form */
 .form-card {
   background: var(--bg);

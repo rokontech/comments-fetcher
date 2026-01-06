@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const inter = Inter({ 
@@ -32,6 +33,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
         {children}
+        <Analytics />
         <Script
           id="buymeacoffee"
           src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"

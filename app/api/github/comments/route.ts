@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Filter comments comments with validation
+      // Filter comments with validation
       const commentsComments = comments.filter((comment: any) => {
         if (!comment || typeof comment !== 'object' || !comment.user) {
           return false;
