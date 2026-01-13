@@ -122,21 +122,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Filter comments with validation
-      const commentsComments = comments.filter((comment: any) => {
-        if (!comment || typeof comment !== 'object' || !comment.user) {
-          return false;
-        }
-        const login = comment.user.login;
-        if (typeof login !== 'string') {
-          return false;
-        }
-        return login === 'commentsai' || login.toLowerCase().includes('comments');
-      });
+      // Map comments to expected format
+      const formattedComments = comments
+        .filter((comment: any) => comment && typeof comment === 'object' && comment.user)
+        .map((comment: any) => ({
+          path: comment.path || '',
+          body: comment.body || '',
+          line: comment.line || comment.original_line,
+          user: {
+            login: comment.user?.login || 'unknown'
+          }
+        }));
 
       return NextResponse.json({
-        comments: commentsComments,
-        total: commentsComments.length,
+        comments: formattedComments,
+        total: formattedComments.length,
       });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
