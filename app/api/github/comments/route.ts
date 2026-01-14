@@ -66,74 +66,110 @@ export async function POST(request: NextRequest) {
     }
 
     // Construct URL with validated inputs (already safe, but encode for extra safety)
-    const apiUrl = `https://api.github.com/repos/${encodeURIComponent(validatedOwner)}/${encodeURIComponent(validatedRepo)}/pulls/${validatedPRNumber}/comments`;
+    let apiUrl = `https://api.github.com/repos/${encodeURIComponent(validatedOwner)}/${encodeURIComponent(validatedRepo)}/pulls/${validatedPRNumber}/comments?per_page=100`;
 
     // Fetch comments from GitHub API (server-side only) with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for multiple pages
 
     try {
-      const response = await fetch(apiUrl, {
-        signal: controller.signal,
-        headers: {
-          'Authorization': `token ${session.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'comments-fetcher'
+      const allComments: unknown[] = [];
+      let pageCount = 0;
+      const maxPages = 10; // Safety limit
+
+      while (apiUrl && pageCount < maxPages) {
+        const response = await fetch(apiUrl, {
+          signal: controller.signal,
+          headers: {
+            'Authorization': `token ${session.githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'comments-fetcher'
+          }
+        });
+
+        if (!response.ok) {
+          clearTimeout(timeoutId);
+
+          await response.json().catch(() => ({}));
+
+          if (response.status === 401) {
+            session.githubToken = undefined;
+            await session.save();
+            return NextResponse.json(
+              { error: 'Authentication failed. Please check your token.' },
+              { status: 401 }
+            );
+          } else if (response.status === 404) {
+            return NextResponse.json(
+              { error: 'Pull request not found. Please verify the repository and PR number.' },
+              { status: 404 }
+            );
+          } else if (response.status === 403) {
+            return NextResponse.json(
+              { error: 'Access forbidden. Token may not have permission.' },
+              { status: 403 }
+            );
+          }
+
+          return NextResponse.json(
+            { error: 'GitHub API error. Please try again later.' },
+            { status: response.status }
+          );
         }
-      });
+
+        const comments = await response.json();
+
+        if (!Array.isArray(comments)) {
+          clearTimeout(timeoutId);
+          return NextResponse.json(
+            { error: 'Invalid response from GitHub API' },
+            { status: 500 }
+          );
+        }
+
+        allComments.push(...comments);
+
+        const linkHeader = response.headers.get('Link');
+        if (linkHeader) {
+          const nextUrlMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+          apiUrl = nextUrlMatch ? nextUrlMatch[1] : '';
+        } else {
+          apiUrl = '';
+        }
+
+        pageCount++;
+      }
+
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        await response.json().catch(() => ({}));
-
-        if (response.status === 401) {
-          // Token might be invalid, clear it
-          session.githubToken = undefined;
-          await session.save();
-          return NextResponse.json(
-            { error: 'Authentication failed. Please check your token.' },
-            { status: 401 }
-          );
-        } else if (response.status === 404) {
-          return NextResponse.json(
-            { error: 'Pull request not found. Please verify the repository and PR number.' },
-            { status: 404 }
-          );
-        } else if (response.status === 403) {
-          return NextResponse.json(
-            { error: 'Access forbidden. Token may not have permission.' },
-            { status: 403 }
-          );
-        }
-
-        return NextResponse.json(
-          { error: 'GitHub API error. Please try again later.' },
-          { status: response.status }
-        );
+      interface GitHubComment {
+        path?: string;
+        body?: string;
+        line?: number;
+        original_line?: number;
+        user?: { login?: string };
+        created_at?: string;
       }
 
-      const comments = await response.json();
-
-      // Validate response is an array
-      if (!Array.isArray(comments)) {
-        return NextResponse.json(
-          { error: 'Invalid response from GitHub API' },
-          { status: 500 }
-        );
+      interface GitHubCommentWithUser extends GitHubComment {
+        user: { login?: string };
       }
 
-      // Map comments to expected format
-      const formattedComments = comments
-        .filter((comment: { user?: unknown }) => comment && typeof comment === 'object' && comment.user)
-        .map((comment: { path?: string; body?: string; line?: number; original_line?: number; user?: { login?: string }; created_at?: string }) => ({
-          path: comment.path || '',
-          body: comment.body || '',
-          line: comment.line || comment.original_line,
-          user: {
-            login: comment.user?.login || 'unknown'
-          },
-          created_at: comment.created_at || ''
-        }));
+      const comments = allComments.filter((comment): comment is GitHubCommentWithUser => {
+        if (!comment || typeof comment !== 'object' || !('user' in comment)) return false;
+        const user = (comment as GitHubComment).user;
+        return Boolean(user);
+      });
+
+      const formattedComments = comments.map((comment) => ({
+        path: comment.path || '',
+        body: comment.body || '',
+        line: comment.line || comment.original_line,
+        user: {
+          login: comment.user?.login || 'unknown'
+        },
+        created_at: comment.created_at || ''
+      }));
 
       return NextResponse.json({
         comments: formattedComments,
