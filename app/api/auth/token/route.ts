@@ -67,7 +67,7 @@ export async function GET() {
     return NextResponse.json({
       hasToken: !!session.githubToken,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to check token' },
       { status: 500 }
@@ -82,7 +82,7 @@ export async function DELETE() {
     session.githubToken = undefined;
     await session.save();
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to delete token' },
       { status: 500 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 
 // Validate and sanitize input
-function validateGitHubIdentifier(value: string, name: string): string | null {
+function validateGitHubIdentifier(value: string): string | null {
   if (!value || typeof value !== 'string') {
     return null;
   }
@@ -15,9 +15,9 @@ function validateGitHubIdentifier(value: string, name: string): string | null {
   return value;
 }
 
-function validatePRNumber(value: any): number | null {
+function validatePRNumber(value: unknown): number | null {
   const num = typeof value === 'string' ? parseInt(value, 10) : value;
-  if (!Number.isInteger(num) || num <= 0 || num > 2147483647) {
+  if (typeof num !== 'number' || !Number.isInteger(num) || num <= 0 || num > 2147483647) {
     return null;
   }
   return num;
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     const { owner, repo, prNumber } = body;
 
     // Validate and sanitize inputs
-    const validatedOwner = validateGitHubIdentifier(owner, 'owner');
-    const validatedRepo = validateGitHubIdentifier(repo, 'repo');
+    const validatedOwner = validateGitHubIdentifier(owner);
+    const validatedRepo = validateGitHubIdentifier(repo);
     const validatedPRNumber = validatePRNumber(prNumber);
 
     if (!validatedOwner || !validatedRepo || !validatedPRNumber) {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        await response.json().catch(() => ({}));
 
         if (response.status === 401) {
           // Token might be invalid, clear it
@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
 
       // Map comments to expected format
       const formattedComments = comments
-        .filter((comment: any) => comment && typeof comment === 'object' && comment.user)
-        .map((comment: any) => ({
+        .filter((comment: { user?: unknown }) => comment && typeof comment === 'object' && comment.user)
+        .map((comment: { path?: string; body?: string; line?: number; original_line?: number; user?: { login?: string }; created_at?: string }) => ({
           path: comment.path || '',
           body: comment.body || '',
           line: comment.line || comment.original_line,
@@ -139,9 +139,9 @@ export async function POST(request: NextRequest) {
         comments: formattedComments,
         total: formattedComments.length,
       });
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         return NextResponse.json(
           { error: 'Request timeout. Please try again.' },
           { status: 504 }
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       }
       throw fetchError;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching comments:', error);
     return NextResponse.json(
       { error: 'Failed to fetch comments. Please try again.' },

@@ -43,8 +43,6 @@ function getSessionOptions() {
 export async function getSession() {
   const cookieStore = cookies();
   const sessionOptions = getSessionOptions();
-  // getIronSession returns a promise when used with Next.js cookies()
-  // @ts-ignore - iron-session types may not reflect promise return in Next.js context
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
   return session;
 }

@@ -83,8 +83,8 @@ export default function Home() {
 
       setTokenSaved(true)
       setToken('••••••••••••••••') // Hide actual token
-    } catch (err: any) {
-      alert(err.message || 'Failed to save token')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to save token')
       setSaveToken(false)
     }
   }
@@ -142,8 +142,8 @@ export default function Home() {
       }
 
       setComments(data.comments)
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch comments')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch comments')
     } finally {
       setLoading(false)
     }
@@ -507,7 +507,7 @@ export default function Home() {
                       </button>
                     </div>
 
-                    {group.map((comment, commentIndex) => {
+                    {group.map((comment) => {
                       const globalIndex = comments.findIndex(c => c === comment)
                       return (
                         <div key={globalIndex} className="comment-item grouped">
