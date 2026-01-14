@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
           line: comment.line || comment.original_line,
           user: {
             login: comment.user?.login || 'unknown'
-          }
+          },
+          created_at: comment.created_at || ''
         }));
 
       return NextResponse.json({

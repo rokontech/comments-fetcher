@@ -395,6 +395,7 @@ input::placeholder {
   align-items: center;
   gap: 12px;
   flex: 1;
+  min-width: 0; /* Allow flex items to shrink below their minimum content size */
 }
 
 .comment-number {
@@ -684,6 +685,11 @@ input::placeholder {
   .file-path {
     width: 100%;
   }
+
+  .comment-time {
+    align-self: flex-end;
+    margin-top: -4px;
+  }
 }
 
 /* Support Section */
@@ -727,3 +733,183 @@ input::placeholder {
   font-weight: 600;
 }
 
+/* Group Settings */
+.results-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.group-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.group-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.2s ease;
+}
+
+.group-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(17,17,17,0.08);
+}
+
+.group-input:hover {
+  border-color: #d1d5db;
+}
+
+/* Comment Groups */
+.comment-group {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  animation: slideUp 0.4s ease-out backwards;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.group-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.group-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.download-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.download-group-btn:hover {
+  background: #2a2a2a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.download-group-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Grouped Comments */
+.comment-item.grouped {
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: 12px;
+  border-color: var(--border-light);
+}
+
+.comment-item.grouped:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+.comment-meta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-number {
+  flex-shrink: 0;
+}
+
+.file-path {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  background: var(--surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments for groups */
+@media (max-width: 640px) {
+  .results-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .group-settings {
+    justify-content: space-between;
+  }
+
+  .group-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .group-info {
+    align-items: center;
+    text-align: center;
+  }
+
+  .download-group-btn {
+    align-self: center;
+  }
+}

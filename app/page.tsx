@@ -9,6 +9,7 @@ interface Comment {
   user: {
     login: string
   }
+  created_at: string
 }
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
   const [prInfo, setPrInfo] = useState({ owner: '', repo: '', prNumber: '' })
   const [showHelp, setShowHelp] = useState(false)
   const [expandedComments, setExpandedComments] = useState<Set<number>>(new Set())
+  const [groupMinutes, setGroupMinutes] = useState(1)
 
   useEffect(() => {
     // Check if token is already saved
@@ -155,6 +157,79 @@ export default function Home() {
       newExpanded.add(index)
     }
     setExpandedComments(newExpanded)
+  }
+
+  const groupCommentsByTime = (comments: Comment[], minutes: number) => {
+    if (!comments.length || !comments[0].created_at) return { groups: [], ungrouped: comments }
+
+    const sortedComments = [...comments].sort((a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+
+    const groups: Comment[][] = []
+    let currentGroup: Comment[] = [sortedComments[0]]
+
+    for (let i = 1; i < sortedComments.length; i++) {
+      const prevTime = new Date(currentGroup[currentGroup.length - 1].created_at).getTime()
+      const currentTime = new Date(sortedComments[i].created_at).getTime()
+      const timeDiff = (currentTime - prevTime) / (1000 * 60) // minutes
+
+      if (timeDiff <= minutes) {
+        currentGroup.push(sortedComments[i])
+      } else {
+        groups.push(currentGroup)
+        currentGroup = [sortedComments[i]]
+      }
+    }
+
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup)
+    }
+
+    return { groups, ungrouped: [] }
+  }
+
+  const downloadGroupComments = (groupComments: Comment[], groupIndex: number) => {
+    if (groupComments.length === 0) return
+
+    const { owner, repo, prNumber } = prInfo
+    const startTime = new Date(groupComments[0].created_at)
+    const endTime = new Date(groupComments[groupComments.length - 1].created_at)
+
+    let content = `# Comments Group ${groupIndex + 1}\n\n`
+    content += `**Repository:** ${owner}/${repo}\n`
+    content += `**Pull Request:** #${prNumber}\n`
+    content += `**Time Period:** ${startTime.toLocaleString()} - ${endTime.toLocaleString()}\n`
+    content += `**Total Comments in Group:** ${groupComments.length}\n`
+    content += `**Grouping Window:** ${groupMinutes} minutes\n\n`
+    content += `---\n\n`
+    content += `## Instructions for AI\n\n`
+    content += `Please review the following comments suggestions from this time period and provide implementation guidance or code fixes for each item.\n\n`
+    content += `---\n\n`
+
+    groupComments.forEach((comment, index) => {
+      content += `## ${index + 1}. ${comment.path}\n\n`
+      content += `**File:** \`${comment.path}\`\n\n`
+      if (comment.line) {
+        content += `**Line:** ${comment.line}\n\n`
+      }
+      content += `**Time:** ${new Date(comment.created_at).toLocaleString()}\n\n`
+      content += `**Comment:**\n\n`
+      content += `${comment.body}\n\n`
+      content += `**Action Required:**\n`
+      content += `Please provide a code solution or implementation guidance for this suggestion.\n\n`
+      content += `---\n\n`
+    })
+
+    const blob = new Blob([content], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `comments-group-${groupIndex + 1}-${owner}-${repo}-pr${prNumber}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const downloadComments = () => {
@@ -383,41 +458,118 @@ export default function Home() {
                   {comments.length} item{comments.length !== 1 ? 's' : ''}
                 </div>
               </div>
-              <button className="download-btn" onClick={downloadComments}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Download Comments
-              </button>
+              <div className="results-actions">
+                <div className="group-settings">
+                  <label htmlFor="groupMinutes" className="group-label">Group by time (minutes):</label>
+                  <input
+                    type="number"
+                    id="groupMinutes"
+                    value={groupMinutes}
+                    onChange={(e) => setGroupMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                    max="60"
+                    className="group-input"
+                  />
+                </div>
+                <button className="download-btn" onClick={downloadComments}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Download All
+                </button>
+              </div>
             </div>
 
-            {comments.map((comment, index) => (
-              <div key={index} className="comment-item">
-                <div className="comment-header-clickable" onClick={() => toggleComment(index)}>
-                  <div className="comment-meta">
-                    <div className="comment-number">{index + 1}</div>
-                    <div className="file-path">{escapeHtml(comment.path)}</div>
+            {(() => {
+              const { groups } = groupCommentsByTime(comments, groupMinutes)
+
+              return groups.length > 1 ? (
+                // Render grouped comments
+                groups.map((group, groupIndex) => (
+                  <div key={groupIndex} className="comment-group">
+                    <div className="group-header">
+                      <div className="group-info">
+                        <div className="group-title">Group {groupIndex + 1}</div>
+                        <div className="group-meta">
+                          {group.length} comment{group.length !== 1 ? 's' : ''} •
+                          {new Date(group[0].created_at).toLocaleString()} - {new Date(group[group.length - 1].created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button className="download-group-btn" onClick={() => downloadGroupComments(group, groupIndex)}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="7 10 12 15 17 10"></polyline>
+                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download Group
+                      </button>
+                    </div>
+
+                    {group.map((comment, commentIndex) => {
+                      const globalIndex = comments.findIndex(c => c === comment)
+                      return (
+                        <div key={globalIndex} className="comment-item grouped">
+                          <div className="comment-header-clickable" onClick={() => toggleComment(globalIndex)}>
+                            <div className="comment-meta">
+                              <div className="comment-number">{globalIndex + 1}</div>
+                              <div className="file-path">{escapeHtml(comment.path)}</div>
+                              <div className="comment-time">{new Date(comment.created_at).toLocaleTimeString()}</div>
+                            </div>
+                            <svg
+                              className={`collapse-icon ${expandedComments.has(globalIndex) ? '' : 'collapsed'}`}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                          </div>
+                          <div className={`suggestion-section ${expandedComments.has(globalIndex) ? '' : 'collapsed'}`}>
+                            <div className="suggestion-label">Suggestion</div>
+                            <div className="suggestion-text">{escapeHtml(comment.body)}</div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                  <svg
-                    className={`collapse-icon ${expandedComments.has(index) ? '' : 'collapsed'}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </div>
-                <div className={`suggestion-section ${expandedComments.has(index) ? '' : 'collapsed'}`}>
-                  <div className="suggestion-label">Suggestion</div>
-                  <div className="suggestion-text">{escapeHtml(comment.body)}</div>
-                </div>
-              </div>
-            ))}
+                ))
+              ) : (
+                // Render ungrouped comments if only one group
+                comments.map((comment, index) => (
+                  <div key={index} className="comment-item">
+                    <div className="comment-header-clickable" onClick={() => toggleComment(index)}>
+                      <div className="comment-meta">
+                        <div className="comment-number">{index + 1}</div>
+                        <div className="file-path">{escapeHtml(comment.path)}</div>
+                        {comment.created_at && (
+                          <div className="comment-time">{new Date(comment.created_at).toLocaleTimeString()}</div>
+                        )}
+                      </div>
+                      <svg
+                        className={`collapse-icon ${expandedComments.has(index) ? '' : 'collapsed'}`}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </div>
+                    <div className={`suggestion-section ${expandedComments.has(index) ? '' : 'collapsed'}`}>
+                      <div className="suggestion-label">Suggestion</div>
+                      <div className="suggestion-text">{escapeHtml(comment.body)}</div>
+                    </div>
+                  </div>
+                ))
+              )
+            })()}
           </div>
         )}
 
